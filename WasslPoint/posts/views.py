@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from .models import TrainingOpportunity, Application, Message
-from profiles.models import CompanyProfile, StudentProfile, Major, City
+from profiles.models import CompanyProfile, StudentProfile, Major, City, Education # Import Education model
 from subscriptions.models import has_active_subscription
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
@@ -39,8 +39,7 @@ def student_required(view_func):
             messages.error(request, "تم رفض الوصول. يتوجب عليك الدخول بحساب طالب.")
             if hasattr(request.user, 'company_profile') and request.user.company_profile:
                  return redirect('profiles:company_profile_view')
-            return redirect('main:home_view')
-        return view_func(request, *args, **kwargs)
+            return view_func(request, *args, **kwargs)
     return _wrapped_view
 
 
@@ -83,7 +82,7 @@ def opportunity_detail(request, opportunity_id):
     show_reapply_form     = False
     application           = None
 
-    # 1) مستخدم مسجَّل؟
+    # 1) مستخدم مسجَّل؟
     if request.user.is_authenticated:
 
         # 1‑A) هل هو صاحب الشركة التي أنشأت الفرصة؟
@@ -119,7 +118,7 @@ def opportunity_detail(request, opportunity_id):
                     show_reapply_form = True
 
             except Application.DoesNotExist:
-                # لم يقدِّم بعد
+                # لم يقدِّم بعد
                 if not application_closed:
                     if has_active_subscription(request.user):
                         show_apply_form = True
@@ -248,7 +247,7 @@ def withdraw_application(request, application_id):
 
     application.status = Application.ApplicationStatus.WITHDRAWN
     # application.student_has_seen_latest_status = True # Student initiated, they have seen
-    # application.company_has_seen_application = False # Company needs notification?
+    # application.company_has_seen_application = False # Company needs notification
     application.save()
     # Translated Message
     messages.success(request, "تم سحب الطلب بنجاح.")
@@ -376,8 +375,10 @@ def opportunity_applications(request, opportunity_id):
         opportunity=opportunity
     ).select_related(
         'student__user',
-        'student__personal_info', # For Name
+        'student__personal_info', # For Name, Gender
         'student__contact_info'   # For Phone
+        ).prefetch_related(
+            'student__education' # Pre-fetch education for university and GPA
         ).order_by('status', '-applied_at')
 
     context = {
@@ -397,7 +398,6 @@ def update_application_status(request, application_id):
 
     is_owner = hasattr(request.user, 'company_profile') and opportunity.company == request.user.company_profile
     if not request.user.is_staff and not is_owner:
-        # Translated Message
         messages.error(request, "لا تملك الصلاحية للتحديث على حالة التقديم.")
         return redirect('posts:opportunity_applications', opportunity_id=opportunity.id)
 
@@ -406,7 +406,6 @@ def update_application_status(request, application_id):
 
     if new_status in Application.ApplicationStatus.values:
         if application.status == Application.ApplicationStatus.WITHDRAWN and request.user == application.student.user:
-             # Translated Message
              messages.error(request, "لا يمكن تحديث الحالة من 'مسحوب' هنا.")
         else:
             application.status = new_status
@@ -415,11 +414,9 @@ def update_application_status(request, application_id):
             #      application.student_has_seen_latest_status = False # Requires model field
             # --- End Placeholder ---
             application.save()
-            # Translated Message
             messages.success(request, f"تم تحديث حالة الطلب إلى '{application.get_status_display()}'.")
             # TODO: Notify student
     else:
-        # Translated Message
         messages.error(request, "تم اختيار حالة غير صالحة.")
 
     return redirect('posts:opportunity_applications', opportunity_id=opportunity.id)
@@ -481,9 +478,6 @@ def application_chat(request, application_id):
     return render(request, "posts/application_chat.html", context)
 
 @login_required
-# posts/views.py
-
-@login_required
 def export_opportunity_applications_excel(request, opportunity_id):
     opportunity = get_object_or_404(TrainingOpportunity, pk=opportunity_id)
     user = request.user
@@ -499,6 +493,8 @@ def export_opportunity_applications_excel(request, opportunity_id):
         'student__user',
         'student__personal_info',
         'student__contact_info'
+    ).prefetch_related(
+        'student__education' # Ensure education data is pre-fetched
     ).order_by('status', '-applied_at')
 
     workbook = openpyxl.Workbook()
@@ -509,7 +505,7 @@ def export_opportunity_applications_excel(request, opportunity_id):
 
     # --- Add Opportunity Title as a Header in the Sheet ---
     # Merge cells for the title
-    sheet.merge_cells('A1:F1') # Merge across the width of your headers
+    sheet.merge_cells('A1:J1') # Changed from I1 to J1 to accommodate the new "المقياس" column
     title_cell = sheet['A1']
     title_cell.value = f"قائمة المتقدمين لفرصة: {opportunity.title}"
     title_cell.font = Font(bold=True, size=14, name='Arial') # Example styling
@@ -518,8 +514,8 @@ def export_opportunity_applications_excel(request, opportunity_id):
 
     # Define Headers (starting from row 2 now)
     headers = [
-        "اسم المتقدم", "البريد الإلكتروني", "رقم الهاتف",
-        "تاريخ التقديم", "الحالة", "رسالة التقديم"
+        "اسم المتقدم", "البريد الإلكتروني", "رقم الهاتف", "الجنس",
+        "الجامعة", "المعدل", "المقياس", "تاريخ التقديم", "الحالة", "رسالة التقديم" # Added "المقياس"
     ]
     sheet.append(headers) # This will append to the next available row, which is row 2
 
@@ -539,16 +535,38 @@ def export_opportunity_applications_excel(request, opportunity_id):
                        app.student.user.username
         email = getattr(app.student.user, 'email', 'N/A')
         phone = getattr(getattr(app.student, 'contact_info', None), 'phone', 'N/A')
+
+        # Get Gender - now using get_gender_display() for translated value
+        gender_display = getattr(app.student.personal_info, 'get_gender_display', lambda: 'N/A')()
+
+
+        # Get University, GPA, and GPA Scale
+        university = 'N/A'
+        gpa_value = 'N/A' # Separate variable for GPA value
+        gpa_scale_display = 'N/A' # Separate variable for GPA scale display
+        if app.student.education.first():
+            first_education = app.student.education.first()
+            university = first_education.university if first_education.university else 'N/A'
+            if first_education.GPA is not None:
+                gpa_value = str(first_education.GPA)
+            if first_education.gpa_scale is not None:
+                gpa_scale_display = first_education.get_gpa_scale_display()
+
+
         applied_date = app.applied_at.strftime('%Y-%m-%d %H:%M') if app.applied_at else 'N/A'
-        status_display = app.get_status_display() # Renamed for clarity
-        message_text = getattr(app, 'message', '') # Renamed for clarity
+        status_display = app.get_status_display()
+        message_text = getattr(app, 'message', '')
 
         sheet.cell(row=current_row, column=1, value=student_name)
         sheet.cell(row=current_row, column=2, value=email)
         sheet.cell(row=current_row, column=3, value=phone)
-        sheet.cell(row=current_row, column=4, value=applied_date)
-        sheet.cell(row=current_row, column=5, value=status_display)
-        sheet.cell(row=current_row, column=6, value=message_text)
+        sheet.cell(row=current_row, column=4, value=gender_display) # Gender - now showing the translated value
+        sheet.cell(row=current_row, column=5, value=university)     # University
+        sheet.cell(row=current_row, column=6, value=gpa_value)      # GPA Value
+        sheet.cell(row=current_row, column=7, value=gpa_scale_display) # GPA Scale (New Column)
+        sheet.cell(row=current_row, column=8, value=applied_date)
+        sheet.cell(row=current_row, column=9, value=status_display)
+        sheet.cell(row=current_row, column=10, value=message_text)
         current_row += 1
 
 
@@ -580,3 +598,25 @@ def export_opportunity_applications_excel(request, opportunity_id):
 
     workbook.save(response)
     return response
+
+# --- NEW VIEW FOR EMBEDDED OPPORTUNITIES ---
+def embedded_opportunities_list(request, company_id):
+    """
+    Displays a list of active opportunities for a specific company,
+    designed to be embedded in external websites.
+    This view renders a minimal HTML structure without the full site layout.
+    """
+    company = get_object_or_404(CompanyProfile, id=company_id)
+
+    # Filter for active opportunities that are not past their application deadline
+    opportunities = TrainingOpportunity.objects.filter(
+        company=company,
+        status=TrainingOpportunity.Status.ACTIVE,
+        application_deadline__gte=timezone.now().date()
+    ).order_by('-created_at')
+
+    context = {
+        'company': company,
+        'opportunities': opportunities,
+    }
+    return render(request, 'posts/embedded_opportunities_list.html', context)

@@ -1,4 +1,3 @@
-# WasslPoint/posts/urls.py
 from django.urls import path
 from . import views
 
@@ -24,4 +23,6 @@ urlpatterns = [
     path('opportunity/<int:opportunity_id>/applications/export/excel/', views.export_opportunity_applications_excel, name='export_applications_excel'),
     path('application/<int:application_id>/status/<str:status>/', views.update_application_status, name='update_application_status'),
     path('opportunity/<int:opportunity_id>/edit/', views.edit_opportunity, name='edit_opportunity'),
+    # New URL pattern for embedded opportunities list
+    path('company/<int:company_id>/opportunities/embed/', views.embedded_opportunities_list, name='embedded_opportunities_list'),
 ]

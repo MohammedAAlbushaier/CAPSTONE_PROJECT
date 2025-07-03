@@ -2,13 +2,12 @@ from django.shortcuts import render , redirect
 from django.http import HttpRequest
 from django.core.mail import send_mail
 from django.conf import settings
-from posts.models import TrainingOpportunity, Application
+from posts.models import TrainingOpportunity, Application # Import Application and TrainingOpportunity
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-from profiles.models import StudentProfile, Industry, CompanyProfile, City,Major
+from profiles.models import StudentProfile, Industry, CompanyProfile, City, Major # Import StudentProfile and CompanyProfile
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q
-
 
 
 def home_view(request:HttpRequest):
@@ -18,7 +17,33 @@ def home_view(request:HttpRequest):
     # Redirect company maybe?
     elif request.user.is_authenticated and hasattr(request.user, 'company_profile') and request.user.company_profile:
        return redirect('posts:company_dashboard') # Example redirect for company
-    return render(request, 'main/home.html')
+
+    # Get the count of registered students
+    student_count = StudentProfile.objects.count()
+
+    # Get the count of registered companies
+    company_count = CompanyProfile.objects.count()
+
+    # Get the count of accepted applicants
+    # Ensure Application.ApplicationStatus.ACCEPTED is correctly defined in posts.models
+    accepted_applicants_count = Application.objects.filter(
+        status=Application.ApplicationStatus.ACCEPTED
+    ).count()
+
+    # Get the count of active co-op opportunities
+    # Filter by ACTIVE status and ensure application_deadline is not in the past
+    active_opportunities_count = TrainingOpportunity.objects.filter(
+        status=TrainingOpportunity.Status.ACTIVE,
+        application_deadline__gte=timezone.now().date()
+    ).count()
+
+    context = {
+        'student_count': student_count,
+        'company_count': company_count,
+        'accepted_applicants_count': accepted_applicants_count,
+        'active_opportunities_count': active_opportunities_count,
+    }
+    return render(request, 'main/home.html', context)
 
 @login_required
 def student_dashboard_view(request):
@@ -250,3 +275,4 @@ def company_view(request):
         'company_name_search': company_name_search,
     }
     return render(request, 'main/company.html', context)
+

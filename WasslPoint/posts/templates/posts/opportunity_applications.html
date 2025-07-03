@@ -9,7 +9,7 @@
 
 
 {% block content %}
-<div class="container mt-4 mb-5">
+<div class="container mt-4 mb-5" dir="rtl"> {# Added dir="rtl" for consistency if not already in base.html #}
 
     <nav aria-label="breadcrumb" style="--bs-breadcrumb-divider: '>';"> {# Breadcrumb styling #}
       <ol class="breadcrumb">
@@ -22,7 +22,11 @@
         <h2 class="mb-0">المتقدمون لفرصة: {{ opportunity.title }}</h2> {# Removed mb-3 #}
         {# --- EXPORT BUTTON --- #}
         {% if applications %}
-        <a href="{% url 'posts:export_applications_excel' opportunity.id %}" class="btn btn-success">
+        <a href="{% url 'posts:export_applications_excel' opportunity.id %}"
+           class="btn btn-success" {# Keeping btn-success as it's a standard export button #}
+           style="background-color: #009999 !important; border-color: #009999 !important; color: white !important; font-weight: bold !important; padding: 0.5rem 1rem !important; border-radius: 0.375rem !important; text-decoration: none !important;"
+           onmouseover="this.style.backgroundColor='#FF7C34'; this.style.borderColor='#FF7C34';"
+           onmouseout="this.style.backgroundColor='#009999'; this.style.borderColor='#009999';">
             <span class="material-symbols-outlined">download</span> تصدير إلى Excel
         </a>
         {% endif %}
@@ -30,87 +34,200 @@
     </div>
     <p class="text-muted mb-3">شركة: {{ opportunity.company.company_name }}</p>
 
+    {# --- UNIVERSITY FILTER DROPDOWN WITH SEARCH --- #}
+    <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+        <span class="fw-bold me-2">تصفية حسب الجامعة:</span>
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="universityFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                    style="border-color: #009999 !important; color: #009999 !important; font-weight: 500 !important; border-radius: 0.375rem !important;">
+                {% if university_filter %}{{ university_filter }}{% else %}كل الجامعات{% endif %}
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="universityFilterDropdown" style="max-height: 300px; overflow-y: auto;">
+                <li class="px-3 py-2">
+                    <input type="text" class="form-control" id="universitySearchInput" placeholder="ابحث عن جامعة..." onkeyup="filterUniversities()">
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item {% if not university_filter %}active{% endif %}"
+                       href="?{% if gpa_order %}gpa_order={{ gpa_order }}{% endif %}"
+                       data-university-name="كل الجامعات">
+                        كل الجامعات
+                    </a>
+                </li>
+                {% for university in unique_universities %}
+                    <li>
+                        <a class="dropdown-item {% if university_filter == university %}active{% endif %}"
+                           href="?university_filter={{ university|urlencode }}{% if gpa_order %}&gpa_order={{ gpa_order }}{% endif %}"
+                           data-university-name="{{ university }}">
+                            {{ university }}
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {# --- END UNIVERSITY FILTER DROPDOWN WITH SEARCH --- #}
 
+    {# --- LIST OF ALL UNIVERSITIES FROM APPLICANTS --- #}
+    {% if unique_universities %}
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-light py-3">
+            <h5 class="mb-0">الجامعات التي ينتمي إليها المتقدمون</h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+                {% for university in unique_universities %}
+                    <span class="badge bg-info-subtle text-info-emphasis rounded-pill px-3 py-2">
+                        {{ university }}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {# --- END LIST OF ALL UNIVERSITIES --- #}
 
     {% if applications %}
-        <div class="table-responsive">
-            <table class="table table-hover align-middle applicant-table">
-                <thead class="table-light">
-                    <tr>
-                        <th>المتقدمين</th>
-                        <th>تم التقديم في</th>
-                        <th>حالة الطلب</th>
-                        <th>أجراء</th>
-                        <th>محادثة</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for app in applications %}
-                        <tr>
-                            <td>
-                                {# --- LINK IS CORRECT for viewing student profile by company --- #}
-                                <a href="{% url 'profiles:company_student_profile' app.student.user.id %}">
-                                {# --- END LINK --- #}
-                                {% if app.student.personal_info.full_name %}
-                                   {{ app.student.personal_info.full_name }}
-                                {% else %}
-                                    {{ app.student.user.username }}
+        <div class="card shadow-sm mt-4 company-dashboard-table-wrapper"> {# Added card and shadow-sm #}
+            <div class="card-header bg-light py-3"> {# Added card-header styling #}
+                <h5 class="mb-0">المتقدمون للفرصة</h5> {# Title for this table #}
+            </div>
+            <div class="card-body p-0"> {# Added p-0 for table to fill card #}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0"> {# Added mb-0 #}
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" class="ps-3">المتقدمين</th> {# Added ps-3 #}
+                                <th scope="col">الجنس</th>
+                                <th scope="col">الجامعة</th>
+                                <th scope="col">
+                                    المعدل
+                                    {# --- GPA Sorting Links --- #}
+                                    <div class="d-inline-block ms-2">
+                                        {# Link for ascending GPA sort, preserving university filter #}
+                                        <a href="?{% if university_filter %}university_filter={{ university_filter|urlencode }}&{% endif %}gpa_order=asc"
+                                           class="text-decoration-none {% if gpa_order == 'asc' %}text-primary{% else %}text-muted{% endif %}">
+                                           <span class="material-symbols-outlined" style="font-size: 1em;">arrow_drop_up</span>
+                                        </a>
+                                        {# Link for descending GPA sort, preserving university filter #}
+                                        <a href="?{% if university_filter %}university_filter={{ university_filter|urlencode }}&{% endif %}gpa_order=desc"
+                                           class="text-decoration-none {% if gpa_order == 'desc' %}text-primary{% else %}text-muted{% endif %}">
+                                           <span class="material-symbols-outlined" style="font-size: 1em;">arrow_drop_down</span>
+                                        </a>
+                                    </div>
+                                    {# --- END GPA Sorting Links --- #}
+                                </th> {# This column will display GPA and scale #}
+                                <th scope="col">المقياس</th> {# Added scope="col" #}
+                                <th scope="col">تم التقديم في</th> {# Added scope="col" #}
+                                <th scope="col">حالة الطلب</th> {# Added scope="col" #}
+                                <th scope="col" class="text-center">أجراء</th> {# Added scope="col" and text-center #}
+                                <th scope="col" class="text-center">محادثة</th> {# Added scope="col" and text-center #}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for app in applications %}
+                                <tr>
+                                    <td class="ps-3"> {# Added ps-3 #}
+                                        {# Link to view student profile by company #}
+                                        <a href="{% url 'profiles:company_student_profile' app.student.user.id %}" class="text-decoration-none fw-medium link-dark"> {# Added fw-medium link-dark #}
+                                        {% if app.student.personal_info.full_name %}
+                                           {{ app.student.personal_info.full_name }}
+                                        {% else %}
+                                            {{ app.student.user.username }}
+                                        {% endif %}
+                                        <br><small class="text-muted">{{ app.student.user.email }}</small>
+                                        </a>
+                                    </td>
+                                    <td><small>{{ app.student.personal_info.get_gender_display }}</small></td> {# Changed to get_gender_display #}
+                                    {# Displaying University Name from the first education entry #}
+                                    <td>
+                                        <small>
+                                        {% if app.student.education.first %} {# Check if any education entry exists #}
+                                            {{ app.student.education.first.university }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                        </small>
+                                    </td>
+                                    {# Displaying GPA with scale from the first education entry #}
+                                    <td>
+                                        <small>
+                                        {% if app.student.education.first %} {# Check if any education entry exists #}
+                                            {% if app.student.education.first.GPA is not None %}
+                                                {{ app.student.education.first.GPA }}
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                        </small>
+                                    </td>
+                                    <td><small> {% if app.student.education.first and app.student.education.first.gpa_scale is not None %}{{ app.student.education.first.get_gpa_scale_display }}{% else %}N/A{% endif %}</small></td> {# Added N/A for scale #}
+                                    <td>{{ app.applied_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {# Use status from Application model to apply appropriate badge styling #}
+                                        <span class="badge rounded-pill status-badge
+                                            {% if app.status == app.Status.PENDING %} bg-secondary-subtle text-secondary-emphasis
+                                            {% elif app.status == app.Status.ACCEPTED %} bg-success-subtle text-success-emphasis
+                                            {% elif app.status == app.Status.REJECTED %} bg-danger-subtle text-danger-emphasis
+                                            {% elif app.status == app.Status.WITHDRAWN %} bg-warning-subtle text-warning-emphasis
+                                            {% else %} bg-light-subtle text-dark-emphasis {% endif %}"> {# Updated badge styles #}
+                                            {{ app.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center dashboard-action-buttons"> {# Added text-center and dashboard-action-buttons #}
+                                        {% if app.status != app.Status.WITHDRAWN %} {# Don't show update form if application is withdrawn #}
+                                            <form action="{% url 'posts:update_application_status' app.id %}" method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <div class="input-group input-group-sm">
+                                                    <select name="status" class="form-select form-select-sm" aria-label="تحديث حالة الطلب">
+                                                        {# Loop through available statuses for update #}
+                                                        {% for value, label in statuses %}
+                                                            {# Exclude WITHDRAWN as a direct choice for updating #}
+                                                            {% if value != app.Status.WITHDRAWN %}
+                                                                <option value="{{ value }}" {% if app.status == value %}selected{% endif %}>{{ label }}</option>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </select>
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-outline-primary"
+                                                            style="background-color: #009999 !important; border-color: #009999 !important; color: white !important; font-weight: 500 !important; border-radius: 0.375rem !important;"
+                                                            onmouseover="this.style.backgroundColor='#FF7C34'; this.style.borderColor='#FF7C34';"
+                                                            onmouseout="this.style.backgroundColor='#009999'; this.style.borderColor='#009999';">
+                                                        تحديث
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        {% else %}
+                                            <span class="text-muted small">تم سحب الطلب</span>
+                                        {% endif %}
+                                    </td>
+                                     <td class="text-center dashboard-action-buttons"> {# Added text-center and dashboard-action-buttons #}
+                                         {# Chat Button #}
+                                         <a href="{% url 'posts:application_chat' app.id %}"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            style="background-color: #17a2b8 !important; border-color: #17a2b8 !important; color: white !important; padding: 0.3rem 0.6rem !important; min-width: 70px !important; font-weight: 500 !important; border-radius: 0.375rem !important;"
+                                            onmouseover="this.style.backgroundColor='#138496'; this.style.borderColor='#117a8b';"
+                                            onmouseout="this.style.backgroundColor='#17a2b8'; this.style.borderColor='#17a2b8';">
+                                            <span class="material-symbols-outlined" style="font-size: 1.2em;">chat</span>
+                                            <span class="d-none d-md-inline ms-1">مراسلة</span>
+                                         </a>
+                                     </td>
+                                </tr>
+                                {% if app.message %}
+                                <tr class="table-light">
+                                   <td colspan="9"><small><strong>رسالة المتقدم:</strong> {{ app.message|linebreaksbr }}</small></td> {# Adjusted colspan to cover all columns #}
+                                </tr>
                                 {% endif %}
-                                <br><small class="text-muted">{{ app.student.user.email }}</small>
-                                </a>
-                            </td>
-                            <td>{{ app.applied_at|date:"Y-m-d H:i" }}</td>
-                            <td>
-                                {# Use status from Application model #}
-                                <span class="badge rounded-pill status-badge
-                                    {% if app.status == app.Status.PENDING %} bg-secondary
-                                    {% elif app.status == app.Status.ACCEPTED %} bg-success
-                                    {% elif app.status == app.Status.REJECTED %} bg-danger
-                                    {% elif app.status == app.Status.WITHDRAWN %} bg-warning text-dark
-                                    {% else %} bg-light text-dark {% endif %}">
-                                    {{ app.get_status_display }}
-                                </span>
-                            </td>
-                            <td>
-                                {% if app.status != app.Status.WITHDRAWN %} {# Don't show update form if withdrawn #}
-                                    <form action="{% url 'posts:update_application_status' app.id %}" method="post" class="d-inline">
-                                        {% csrf_token %}
-                                        <div class="input-group input-group-sm">
-                                            <select name="status" class="form-select form-select-sm" aria-label="تحديث حالة الطلب">
-                                                {# Loop through available statuses for update #}
-                                                {% for value, label in statuses %}
-                                                    {# Exclude PENDING and WITHDRAWN as direct choices here? Or allow setting back to PENDING? #}
-                                                    {# Let's allow setting PENDING, ACCEPTED, REJECTED #}
-                                                    {% if value != app.Status.WITHDRAWN %}
-                                                        <option value="{{ value }}" {% if app.status == value %}selected{% endif %}>{{ label }}</option>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </select>
-                                            <button type="submit" class="btn btn-sm btn-outline-primary">تحديث</button>
-                                        </div>
-                                    </form>
-                                {% else %}
-                                    <span class="text-muted small">تم سحب الطلب</span>
-                                {% endif %}
-                            </td>
-                             <td> {# Chat Button #}
-                                 <a href="{% url 'posts:application_chat' app.id %}" class="btn btn-sm btn-outline-secondary">
-                                    <span class="material-symbols-outlined" style="font-size: 1.2em;">chat</span>
-                                    <span class="d-none d-md-inline ms-1">مراسلة</span>
-                                 </a>
-                             </td>
-                        </tr>
-                        {% if app.message %}
-                        <tr class="table-light">
-                           <td colspan="5"><small><strong>رسالة المتقدم:</strong> {{ app.message|linebreaksbr }}</small></td>
-                        </tr>
-                        {% endif %}
-                    {% endfor %}
-                </tbody>
-            </table>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     {% else %}
-        <div class="alert alert-info mt-4" role="alert">
+        <div class="alert alert-info mt-4 shadow-sm" role="alert"> {# Added shadow-sm #}
             <h4 class="alert-heading">
                  <span class="material-symbols-outlined align-middle me-2">info</span>لا يوجد متقدمون
             </h4>
@@ -119,10 +236,40 @@
     {% endif %}
 
      <div class="mt-4">
-        <a href="{% url 'posts:company_dashboard' %}" class="btn btn-secondary">
+        <a href="{% url 'posts:company_dashboard' %}"
+           class="btn btn-secondary"
+           style="background-color: #6c757d !important; border-color: #6c757d !important; color: white !important; font-weight: bold !important; padding: 0.5rem 1rem !important; border-radius: 0.375rem !important; text-decoration: none !important;"
+           onmouseover="this.style.backgroundColor='#5a6268'; this.style.borderColor='#545b62';"
+           onmouseout="this.style.backgroundColor='#6c757d'; this.style.borderColor='#6c757d';">
             <span class="material-symbols-outlined">arrow_back</span> العودة إلى لوحة التحكم
         </a>
     </div>
 
 </div>
+
+<script>
+    function filterUniversities() {
+        const input = document.getElementById('universitySearchInput');
+        const filter = input.value.toUpperCase();
+        const ul = input.closest('.dropdown-menu');
+        const li = ul.getElementsByTagName('li');
+
+        for (let i = 0; i < li.length; i++) {
+            const a = li[i].querySelector('a.dropdown-item');
+            if (a) {
+                const txtValue = a.textContent || a.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    li[i].style.display = "";
+                } else {
+                    li[i].style.display = "none";
+                }
+            }
+        }
+    }
+
+    // Keep dropdown open when clicking inside the search input
+    document.getElementById('universitySearchInput').addEventListener('click', function(event) {
+        event.stopPropagation();
+    });
+</script>
 {% endblock %}

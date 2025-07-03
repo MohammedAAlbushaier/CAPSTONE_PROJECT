@@ -205,15 +205,28 @@
                             </div>
                         </div>
 
+                        {# --- DURATION DROPDOWN AND CONDITIONAL INPUT --- #}
                         <div class="mb-3">
-                            <label for="{{ form.duration.id_for_label }}" class="form-label">المدة<span class="text-danger">*</span></label>
-                            {{ form.duration|add_class:"form-control"|attr:"required" }}
-                            {% if form.duration.errors %}
+                            <label for="{{ form.duration_selection.id_for_label }}" class="form-label">المدة<span class="text-danger">*</span></label>
+                            {{ form.duration_selection|add_class:"form-select"|attr:"required" }}
+                            {% if form.duration_selection.errors %}
                                 <div class="invalid-feedback d-block">
-                                    {{ form.duration.errors|striptags }}
+                                    {{ form.duration_selection.errors|striptags }}
                                 </div>
                             {% endif %}
                         </div>
+
+                        <div class="mb-3" id="otherDurationWeeksDiv" style="display: none;">
+                            <label for="{{ form.other_duration_weeks.id_for_label }}" class="form-label">المدة بالأسابيع<span class="text-danger">*</span></label>
+                            {{ form.other_duration_weeks|add_class:"form-control" }}
+                            {% if form.other_duration_weeks.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.other_duration_weeks.errors|striptags }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        {# --- END DURATION DROPDOWN AND CONDITIONAL INPUT --- #}
+
 
                         <div class="mb-4">
                             <label for="{{ form.status.id_for_label }}" class="form-label">حالة الفرصة<span class="text-danger">*</span></label>
@@ -276,6 +289,30 @@ document.addEventListener('DOMContentLoaded', function () {
             itemSelectText: 'اضغط للاختيار',
         });
     }
+
+    // --- DURATION LOGIC ---
+    const durationSelect = document.getElementById('id_duration_selection');
+    const otherDurationWeeksDiv = document.getElementById('otherDurationWeeksDiv');
+    const otherDurationWeeksInput = document.getElementById('id_other_duration_weeks');
+
+    function toggleOtherDurationInput() {
+        if (durationSelect.value === 'other') {
+            otherDurationWeeksDiv.style.display = 'block';
+            otherDurationWeeksInput.setAttribute('required', 'required');
+        } else {
+            otherDurationWeeksDiv.style.display = 'none';
+            otherDurationWeeksInput.removeAttribute('required');
+            otherDurationWeeksInput.value = ''; // Clear value when hidden
+        }
+    }
+
+    // Attach event listener
+    if (durationSelect) {
+        durationSelect.addEventListener('change', toggleOtherDurationInput);
+        // Call on load to set initial state
+        toggleOtherDurationInput();
+    }
+    // --- END DURATION LOGIC ---
 
     // Bootstrap custom validation for .needs-validation forms
     var forms = document.querySelectorAll('.needs-validation');

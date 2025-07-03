@@ -37,7 +37,7 @@
         <div class="bg-white p-4 rounded-4 shadow-sm d-flex flex-column align-items-center">
           <i class="fi fi-rr-user mb-2"></i>
           <div>
-            <h5 class="fw-bold" style="color: #009999; font-size: 40px;">10K</h5>
+            <h5 class="fw-bold" style="color: #009999; font-size: 40px;">{{ student_count }}</h5> {# Dynamic student count #}
             <span style="color: #009999; font-size: 40px;">طالب</span>
           </div>
         </div>
@@ -47,7 +47,7 @@
         <div class="bg-white p-4 rounded-4 shadow-sm d-flex flex-column align-items-center">
           <i class="fi fi-rr-building mb-2"></i>
           <div>
-            <h5 class="fw-bold" style="color: #009999; font-size: 40px;">+500</h5>
+            <h5 class="fw-bold" style="color: #009999; font-size: 40px;">{{ company_count }}</h5> {# Dynamic company count #}
             <span style="color: #009999; font-size: 40px;">شركة</span>
           </div>
         </div>
@@ -57,7 +57,7 @@
         <div class="bg-white p-4 rounded-4 shadow-sm d-flex flex-column align-items-center">
           <i class="fi fi-rr-graduation-cap mb-2"></i>
           <div>
-            <h5 class="fw-bold" style="color: #009999; font-size: 40px;">12K</h5>
+            <h5 class="fw-bold" style="color: #009999; font-size: 40px;">{{ accepted_applicants_count }}</h5> {# Dynamic accepted applicants count #}
             <span style="color: #009999; font-size: 40px;">تم تدريبهم</span>
           </div>
         </div>
@@ -67,7 +67,7 @@
         <div class="bg-white p-4 rounded-4 shadow-sm d-flex flex-column align-items-center">
           <i class="fi fi-rr-briefcase mb-2"></i>
           <div>
-            <h5 class="fw-bold" style="color: #009999; font-size: 40px;">42</h5>
+            <h5 class="fw-bold" style="color: #009999; font-size: 40px;">{{ active_opportunities_count }}</h5> {# Dynamic active opportunities count #}
             <span style="color: #009999; font-size: 40px;">تدريب متاح</span>
           </div>
         </div>
@@ -133,10 +133,5 @@
         {% endif %}
     </div>
 </section>
-
-
-
-
-
 
 {% endblock %}
